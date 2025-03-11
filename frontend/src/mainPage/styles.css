@@ -1,0 +1,71 @@
+
+@font-face {
+    font-family: 'PIXY'; 
+    src: url('../fonts/PIXY.otf') format('otf'); 
+    font-weight: normal; 
+    font-style: normal;  
+}
+
+body {
+  font-family: 'PIXY', sans-serif;
+  margin: 0;
+  padding: 0;
+
+
+  height: 100vh;
+      background-image: url('../img/background.jpg');
+    background-size: cover; 
+    background-position: center; 
+    background-repeat: no-repeat; 
+    background-attachment: fixed; 
+}
+
+.App {
+  text-align: center;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+input {
+  margin: 10px;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+h1 {
+    font-family: 'PIXY', cursive; 
+    color: white;
+    font-size: 90px;
+    text-align: center;
+    line-height: 0.9;
+    margin: 30px 0px;
+
+}
+
+.ContentContainer {
+  display: flex;
+  flex-direction: row;
+  padding: 0 80px;
+  gap: 350px;
+}
+
+.Title {
+  display: flex;
+  justify-content: center;
+}

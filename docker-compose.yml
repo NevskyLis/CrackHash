@@ -1,4 +1,4 @@
-version: "3"
+version: '3'
 services:
   manager:
     build: .
@@ -27,3 +27,10 @@ services:
     command: npm run start:worker
     environment:
       - PORT=3003
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - manager
