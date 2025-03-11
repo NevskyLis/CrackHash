@@ -1,0 +1,29 @@
+version: "3"
+services:
+  manager:
+    build: .
+    command: npm run start:manager
+    ports:
+      - "3000:3000"
+    depends_on:
+      - worker1
+      - worker2
+      - worker3
+
+  worker1:
+    build: .
+    command: npm run start:worker
+    environment:
+      - PORT=3001
+
+  worker2:
+    build: .
+    command: npm run start:worker
+    environment:
+      - PORT=3002
+
+  worker3:
+    build: .
+    command: npm run start:worker
+    environment:
+      - PORT=3003
