@@ -1,38 +1,34 @@
 .customTable {
-  width: 100%; 
-  border-collapse: collapse; 
-  background-color: #545454; 
-  border-radius: 10px; 
-  overflow: hidden; 
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #545454;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   margin-top: 10px;
-  color: white; 
+  color: white;
   padding: 20px;
 }
 
 .customTable th,
 .customTable td {
-  padding: 12px; 
-  text-align: left; 
-  border-bottom: 1px solid #ddd; 
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
 }
 
 .customTable th {
-  background-color: #545454; 
-  font-weight: bold; 
-}
-
-.customTable tbody tr:hover {
-  background-color: #e0e0e0; 
+  background-color: #545454;
+  font-weight: bold;
 }
 
 .customTable tbody tr:last-child td {
-  border-bottom: none; 
+  border-bottom: none;
 }
 
 .WorkersInfoContainer {
-    display: flex;
-    flex-direction: column;
-    min-width: 600px;
-    margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  min-width: 600px;
+  margin-bottom: 20px;
 }

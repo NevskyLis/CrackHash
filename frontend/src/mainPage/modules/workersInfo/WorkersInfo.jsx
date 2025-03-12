@@ -1,38 +1,48 @@
+import React, { useEffect, useState } from "react";
 import "./styles.css";
 
-export const WorkersInfo = () => {
+export const WorkersInfo = ({ requestId }) => {
+  const [workers, setWorkers] = useState([]);
+
+  const fetchWorkersInfo = async () => {
+    try {
+      const response = await fetch(
+        `http://localhost:3000/api/workers/info?requestId=${requestId}`
+      );
+      const data = await response.json();
+      setWorkers(data);
+    } catch (error) {
+      console.error("Error fetching workers info:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (requestId) {
+      fetchWorkersInfo();
+      const interval = setInterval(fetchWorkersInfo, 5000); 
+      return () => clearInterval(interval); 
+    }
+  }, [requestId]);
+
   return (
     <div className="WorkersInfoContainer">
       <p> CURRENT WORKERS </p>
-      <table class="customTable">
+      <table className="customTable">
         <thead>
           <tr>
             <th>NUMBER</th>
             <th>STATUS</th>
-            <th>PERCENT</th>
-            <th>DATA</th>
+            <th>ANSWER</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>Данные 1</td>
-            <td>Данные 2</td>
-            <td>Данные 3</td>
-            <td>Данные 4</td>
-          </tr>
-          <tr>
-            <td>Данные 5</td>
-            <td>Данные 6</td>
-            <td>Данные 7</td>
-            <td>Данные 8</td>
-          </tr>
-          <tr>
-            <td>Данные 9</td>
-            <td>Данные 10</td>
-            <td>Данные 11</td>
-            <td>Данные 12</td>
-          </tr>
-
+          {workers.map((worker, index) => (
+            <tr key={index}>
+              <td>{worker.number}</td>
+              <td>{worker.status}</td>
+              <td>{worker.data.join(", ")}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

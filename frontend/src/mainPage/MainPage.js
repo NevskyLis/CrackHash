@@ -5,6 +5,8 @@ import { WorkersInfo } from "./modules/workersInfo/WorkersInfo";
 import { QueueInfo } from "./modules/queueInfo/QueueInfo";
 
 export const MainPage = () => {
+  const [currentRequestId, setCurrentRequestId] = useState(null);
+
   return (
     <div>
       <div className="Title">
@@ -17,12 +19,11 @@ export const MainPage = () => {
       </div>
 
       <div className="ContentContainer">
-        <InfoForm />
+        <InfoForm setCurrentRequestId={setCurrentRequestId} />
         <div>
-          <WorkersInfo />
-        <QueueInfo/>  
+          <WorkersInfo requestId={currentRequestId} />
+          <QueueInfo />
         </div>
-        
       </div>
     </div>
   );

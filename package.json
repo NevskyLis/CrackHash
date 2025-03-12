@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start:manager": "node src/manager/index.js",
-    "start:worker": "node src/worker/index.js"
+    "start:manager": "node src/manager/manager.js",
+    "start:worker": "node src/worker/worker.js"
   },
   "keywords": [],
   "author": "",

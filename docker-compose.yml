@@ -6,27 +6,53 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - worker1
-      - worker2
-      - worker3
+      worker1:
+        condition: service_healthy
+      worker2:
+        condition: service_healthy
+      worker3:
+        condition: service_healthy
+    networks:
+      - crackhash-network
 
   worker1:
     build: .
     command: npm run start:worker
     environment:
       - PORT=3001
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crackhash-network
 
   worker2:
     build: .
     command: npm run start:worker
     environment:
       - PORT=3002
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crackhash-network
 
   worker3:
     build: .
     command: npm run start:worker
     environment:
       - PORT=3003
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crackhash-network
 
   frontend:
     build: ./frontend
@@ -34,3 +60,9 @@ services:
       - "80:80"
     depends_on:
       - manager
+    networks:
+      - crackhash-network
+
+networks:
+  crackhash-network:
+    driver: bridge

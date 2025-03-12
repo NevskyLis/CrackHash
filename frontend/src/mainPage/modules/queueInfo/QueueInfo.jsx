@@ -1,49 +1,37 @@
+import React, { useEffect, useState } from "react";
 import "../workersInfo/styles.css";
 
+
 export const QueueInfo = () => {
+  const [queue, setQueue] = useState([]);
+
+  const fetchQueueInfo = async () => {
+    try {
+      const response = await fetch("http://localhost:3000/api/queue/info");
+      const data = await response.json();
+      setQueue(data);
+    } catch (error) {
+      console.error("Error fetching queue info:", error);
+    }
+  };
+
   return (
-    <div className="WorkersInfoContainer">
-      <p> TASK QUEUE </p>
-      <table class="customTable">
+    <div className="QueueInfoContainer">
+      <p> CURRENT QUEUE </p>
+      <table className="customTable">
         <thead>
           <tr>
-            <th>NUMBER</th>
+            <th>REQUEST ID</th>
             <th>STATUS</th>
-            <th>PERCENT</th>
-            <th>DATA</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>Данные 1</td>
-            <td>Данные 2</td>
-            <td>Данные 3</td>
-            <td>Данные 4</td>
-          </tr>
-          <tr>
-            <td>Данные 5</td>
-            <td>Данные 6</td>
-            <td>Данные 7</td>
-            <td>Данные 8</td>
-          </tr>
-          <tr>
-            <td>Данные 9</td>
-            <td>Данные 10</td>
-            <td>Данные 11</td>
-            <td>Данные 12</td>
-          </tr>
-          <tr>
-            <td>Данные 9</td>
-            <td>Данные 10</td>
-            <td>Данные 11</td>
-            <td>Данные 12</td>
-          </tr>
-          <tr>
-            <td>Данные 9</td>
-            <td>Данные 10</td>
-            <td>Данные 11</td>
-            <td>Данные 12</td>
-          </tr>
+          {queue.map((item, index) => (
+            <tr key={index}>
+              <td>{item.requestId}</td>
+              <td>{item.status}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
