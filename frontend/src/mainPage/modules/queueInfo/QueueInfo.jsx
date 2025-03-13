@@ -15,14 +15,23 @@ export const QueueInfo = () => {
     }
   };
 
+  useEffect(() => {
+    fetchQueueInfo();
+
+    const intervalId = setInterval(fetchQueueInfo, 5000); 
+
+    return () => clearInterval(intervalId);
+  }, []);
+
   return (
-    <div className="QueueInfoContainer">
+    <div className="WorkersInfoContainer">
       <p> CURRENT QUEUE </p>
       <table className="customTable">
         <thead>
           <tr>
             <th>REQUEST ID</th>
             <th>STATUS</th>
+            <th>ANSWER</th>
           </tr>
         </thead>
         <tbody>
@@ -30,6 +39,7 @@ export const QueueInfo = () => {
             <tr key={index}>
               <td>{item.requestId}</td>
               <td>{item.status}</td>
+              <td>{item.result}</td>
             </tr>
           ))}
         </tbody>

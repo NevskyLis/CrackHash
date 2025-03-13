@@ -5,6 +5,7 @@ const {
   addRequest,
   getRequestStatus,
   getWorkersInfo,
+  getQueueInfo,
 } = require("./queueManager");
 
 const app = express();
@@ -42,6 +43,11 @@ app.get("/api/workers/info", (req, res) => {
   }
 
   res.json(workersInfo);
+});
+
+app.get("/api/queue/info", (req, res) => {
+  const queueInfo = getQueueInfo();
+  res.json(queueInfo);
 });
 
 app.listen(3000, () => {

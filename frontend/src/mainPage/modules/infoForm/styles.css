@@ -1,7 +1,7 @@
 .InfoFormContainer{
     display: flex;
     flex-direction: column;
-    
+    gap: 15px;
 }
 
 .InfoFormItem input[type="number"], input[type="text"] {
@@ -15,8 +15,6 @@
     transition: border-color 0.3s ease; 
     color: white;
 }
-
-
 
 .customButton {
     width: 130px;

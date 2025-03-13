@@ -14,62 +14,62 @@ const tasks = [];
 const requests = new Map();
 
 function processQueue() {
-  while (tasks.length > 0 && requests.size < MAX_ACTIVE_REQUESTS) {
-    const task = tasks.shift();
+  const taskIndex = tasks.findIndex(
+    (task) => task.status === TaskStatus.IN_QUEUE
+  );
+
+  if (taskIndex !== -1) {
+    const task = tasks[taskIndex]; 
     const requestId = task.requestId;
 
-    if (task.status === TaskStatus.IN_QUEUE) {
-      task.status = TaskStatus.IN_PROGRESS;
-      task.completedWorkers = 0;
-      task.results = [];
-      task.workerStatuses = Array(WORKER_URLS.length).fill(
-        WorkerStatus.IN_PROGRESS
+    task.status = TaskStatus.IN_PROGRESS;
+    task.completedWorkers = 0;
+    task.results = [];
+    task.workerStatuses = Array(WORKER_URLS.length).fill(
+      WorkerStatus.IN_PROGRESS
+    );
+    task.workerResults = Array(WORKER_URLS.length).fill([]);
+
+    WORKER_URLS.forEach((workerUrl, partNumber) => {
+      console.log(
+        `Sending task to worker ${workerUrl} for requestId: ${requestId}`
       );
-      task.workerResults = Array(WORKER_URLS.length).fill([]);
+      axios
+        .post(`${workerUrl}/internal/api/worker/hash/crack/task`, {
+          requestId,
+          hash: task.hash,
+          maxLength: task.maxLength,
+          partNumber,
+          partCount: WORKER_URLS.length,
+        })
+        .then((response) => {
+          const task = requests.get(requestId);
 
-      WORKER_URLS.forEach((workerUrl, partNumber) => {
-        console.log(
-          `Sending task to worker ${workerUrl} for requestId: ${requestId}`
-        );
-        axios
-          .post(`${workerUrl}/internal/api/worker/hash/crack/task`, {
-            requestId,
-            hash: task.hash,
-            maxLength: task.maxLength,
-            partNumber,
-            partCount: WORKER_URLS.length,
-          })
-          .then((response) => {
-            console.log(`Response from worker ${workerUrl}:`, response.data);
-            const task = requests.get(requestId);
+          task.results.push(...response.data.words);
+          task.completedWorkers++;
+          task.workerStatuses[partNumber] = WorkerStatus.READY;
+          task.workerResults[partNumber] = response.data.words || "No matches";
 
-            task.results.push(...response.data.words);
-            task.completedWorkers++;
-            task.workerStatuses[partNumber] = WorkerStatus.READY;
-            task.workerResults[partNumber] =
-              response.data.words || "No matches";
+          if (task.results.length > 0) {
+            task.status = TaskStatus.READY;
+          }
 
-            if (task.results.length > 0) {
-              // stopAllWorkers(requestId);
-              task.status = TaskStatus.READY;
-            } else if (task.completedWorkers === WORKER_URLS.length) {
-              task.status = TaskStatus.ERROR;
-            } else {
-              task.results.push("No matches");
-            }
-          })
-          .catch((error) => {
-            console.error(`Error from worker ${workerUrl}:`, error.message);
-            const task = requests.get(requestId);
-            task.completedWorkers++;
-            task.workerStatuses[partNumber] = WorkerStatus.ERROR;
+          else if (task.completedWorkers === WORKER_URLS.length) {
+            task.status = TaskStatus.ERROR;
+            task.results.push("No matches");
+          }
+        })
+        .catch((error) => {
+          console.error(`Error from worker ${workerUrl}:`, error.message);
+          const task = requests.get(requestId);
+          task.completedWorkers++;
+          task.workerStatuses[partNumber] = WorkerStatus.ERROR;
 
-            if (task.completedWorkers === WORKER_URLS.length) {
-              task.status = TaskStatus.ERROR;
-            }
-          });
-      });
-    }
+          if (task.completedWorkers === WORKER_URLS.length) {
+            task.status = TaskStatus.ERROR;
+          }
+        });
+    });
   }
 }
 
@@ -98,6 +98,14 @@ function stopAllWorkers(requestId) {
 
 function addRequest(hash, maxLength) {
   const requestId = uuidv4();
+  const inQueueCount = tasks.filter(
+    (task) => task.status === TaskStatus.IN_QUEUE
+  ).length;
+  if (inQueueCount >= MAX_ACTIVE_REQUESTS) {
+    throw new Error(
+      "Достигнуто максимальное количество задач в очереди, подождите"
+    );
+  }
   const task = {
     requestId,
     status: TaskStatus.IN_QUEUE,
@@ -140,9 +148,18 @@ function getWorkersInfo(requestId) {
   });
 }
 
+function getQueueInfo() {
+  return tasks.map((task) => ({
+    requestId: task.requestId,
+    status: task.status,
+    result: task.results[0]
+  }));
+}
+
 module.exports = {
   addRequest,
   getRequestStatus,
   getWorkersInfo,
   stopAllWorkers,
+  getQueueInfo,
 };

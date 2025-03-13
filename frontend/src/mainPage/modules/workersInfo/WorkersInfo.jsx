@@ -6,22 +6,22 @@ export const WorkersInfo = ({ requestId }) => {
 
   const fetchWorkersInfo = async () => {
     try {
-      const response = await fetch(
-        `http://localhost:3000/api/workers/info?requestId=${requestId}`
-      );
-      const data = await response.json();
-      setWorkers(data);
+      if (requestId) {
+        const response = await fetch(
+          `http://localhost:3000/api/workers/info?requestId=${requestId}`
+        );
+        const data = await response.json();
+        setWorkers(data);
+      }
     } catch (error) {
       console.error("Error fetching workers info:", error);
     }
   };
 
   useEffect(() => {
-    if (requestId) {
-      fetchWorkersInfo();
-      const interval = setInterval(fetchWorkersInfo, 5000); 
-      return () => clearInterval(interval); 
-    }
+    fetchWorkersInfo();
+    const interval = setInterval(fetchWorkersInfo, 1000);
+    return () => clearInterval(interval);
   }, [requestId]);
 
   return (

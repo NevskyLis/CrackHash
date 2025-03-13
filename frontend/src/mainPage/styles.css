@@ -61,8 +61,8 @@ h1 {
 .ContentContainer {
   display: flex;
   flex-direction: row;
-  padding: 0 80px;
-  gap: 350px;
+  padding: 3vh 10vw;
+  justify-content: space-between
 }
 
 .Title {
