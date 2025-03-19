@@ -1,28 +1,29 @@
 import React, { useEffect, useState } from "react";
 import "./styles.css";
 
-export const WorkersInfo = ({ requestId }) => {
+export const WorkersInfo = ({ activeRequestId }) => {
   const [workers, setWorkers] = useState([]);
 
-  const fetchWorkersInfo = async () => {
-    try {
-      if (requestId) {
-        const response = await fetch(
-          `http://localhost:3000/api/workers/info?requestId=${requestId}`
-        );
-        const data = await response.json();
-        setWorkers(data);
-      }
-    } catch (error) {
-      console.error("Error fetching workers info:", error);
-    }
-  };
-
   useEffect(() => {
-    fetchWorkersInfo();
-    const interval = setInterval(fetchWorkersInfo, 1000);
-    return () => clearInterval(interval);
-  }, [requestId]);
+    if (!activeRequestId) return; 
+    const workersEventSource = new EventSource(
+      `http://localhost:3000/api/workers/info/sse?requestId=${activeRequestId}`
+    );
+
+    workersEventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      setWorkers(data);
+    };
+
+    workersEventSource.onerror = () => {
+      console.error("SSE connection error (workers)");
+      workersEventSource.close();
+    };
+
+    return () => {
+      workersEventSource.close();
+    };
+  }, [activeRequestId]); 
 
   return (
     <div className="WorkersInfoContainer">

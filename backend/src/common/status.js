@@ -9,7 +9,6 @@ const TaskStatus = {
 const WorkerStatus = {
   IN_PROGRESS: "IN_PROGRESS",
   READY: "READY",
-  STOPPED: "STOPPED",
   ERROR: "ERROR",
 };
 

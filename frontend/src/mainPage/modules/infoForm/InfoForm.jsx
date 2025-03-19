@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import "./styles.css";
 
-export const InfoForm = ({ setCurrentRequestId }) => {
+export const InfoForm = () => {
   const [hash, setHash] = useState("");
   const [maxLength, setMaxLength] = useState("");
 
@@ -21,7 +21,6 @@ export const InfoForm = ({ setCurrentRequestId }) => {
       }
 
       const data = await response.json();
-      setCurrentRequestId(data.requestId);
     } catch (error) {
       console.error("Error:", error);
     }
@@ -51,3 +50,5 @@ export const InfoForm = ({ setCurrentRequestId }) => {
     </div>
   );
 };
+
+export default InfoForm;

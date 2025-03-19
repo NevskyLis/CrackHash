@@ -10,15 +10,6 @@ app.use(cors());
 
 const port = process.env.PORT || 3001;
 
-let stopFlag = false;
-
-app.post("/internal/api/worker/hash/crack/stop", (req, res) => {
-  const { requestId } = req.body;
-  stopFlag = true;
-  console.log(`Stop request received for requestId: ${requestId}`);
-  res.json({ status: "STOPPED", requestId });
-});
-
 app.post("/internal/api/worker/hash/crack/task", (req, res) => {
   const { requestId, hash, maxLength, partNumber, partCount } = req.body;
 
@@ -39,19 +30,11 @@ app.post("/internal/api/worker/hash/crack/task", (req, res) => {
     return res.status(400).json({ error: "Invalid task data" });
   }
 
-  const result = crackHash(
-    hash,
-    maxLength,
-    partNumber,
-    partCount,
-    () => stopFlag
-  );
+  const results = crackHash(hash, maxLength, partNumber, partCount);
 
-  console.log("Task result:", result);
+  console.log("Task result:", results);
 
-  stopFlag = false;
-
-  res.json({ requestId, words: result });
+  res.json({ requestId, words: results });
 });
 
 app.get("/health", (req, res) => {

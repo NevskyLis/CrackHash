@@ -24,7 +24,7 @@ function* generateCombinations(alphabet, maxLength, startIndex, endIndex) {
   yield* generate("", 0);
 }
 
-function crackHash(hash, maxLength, partNumber, partCount, shouldStop) {
+function crackHash(hash, maxLength, partNumber, partCount) {
   const alphabetArray = ALPHABET.split("");
   let totalCombinations = 0;
   for (let length = 1; length <= maxLength; length++) {
@@ -34,7 +34,7 @@ function crackHash(hash, maxLength, partNumber, partCount, shouldStop) {
   const start = partNumber * combinationsPerPart;
   const end = Math.min(start + combinationsPerPart, totalCombinations);
 
-  let result = null;
+  const results = [];
 
   console.log(
     `Part ${partNumber}: Processing combinations from ${start} to ${end}`
@@ -48,16 +48,25 @@ function crackHash(hash, maxLength, partNumber, partCount, shouldStop) {
   );
 
   for (const word of combinations) {
-    if (shouldStop && shouldStop()) break;
-
     const wordHash = crypto.createHash("md5").update(word).digest("hex");
     if (wordHash === hash) {
-      result = word;
-      break;
+      results.push(word);
     }
   }
 
-  return result ? [result] : [];
+  return results;
+}
+
+function calculateTotalCombinations(maxLength, alphabetLength) {
+  let total = 0;
+  for (let length = 1; length <= maxLength; length++) {
+    total += Math.pow(alphabetLength, length);
+  }
+  return total;
+}
+
+function calculateProgress(currentIndex, totalCombinations) {
+  return ((currentIndex / totalCombinations) * 100).toFixed(2);
 }
 
 module.exports = { crackHash, generateCombinations };

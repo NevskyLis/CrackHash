@@ -19,7 +19,7 @@ function processQueue() {
   );
 
   if (taskIndex !== -1) {
-    const task = tasks[taskIndex]; 
+    const task = tasks[taskIndex];
     const requestId = task.requestId;
 
     task.status = TaskStatus.IN_PROGRESS;
@@ -29,6 +29,7 @@ function processQueue() {
       WorkerStatus.IN_PROGRESS
     );
     task.workerResults = Array(WORKER_URLS.length).fill([]);
+    task.progress = 0; 
 
     WORKER_URLS.forEach((workerUrl, partNumber) => {
       console.log(
@@ -45,18 +46,23 @@ function processQueue() {
         .then((response) => {
           const task = requests.get(requestId);
 
-          task.results.push(...response.data.words);
+          task.results.push(...response.data.words); 
           task.completedWorkers++;
           task.workerStatuses[partNumber] = WorkerStatus.READY;
           task.workerResults[partNumber] = response.data.words || "No matches";
 
-          if (task.results.length > 0) {
-            task.status = TaskStatus.READY;
-          }
+          task.progress = (
+            (task.completedWorkers / WORKER_URLS.length) *
+            100
+          ).toFixed(2);
 
-          else if (task.completedWorkers === WORKER_URLS.length) {
-            task.status = TaskStatus.ERROR;
-            task.results.push("No matches");
+          if (task.completedWorkers === WORKER_URLS.length) {
+            if (task.results.length > 0) {
+              task.status = TaskStatus.READY; 
+            } else {
+              task.status = TaskStatus.ERROR; 
+              task.results.push("No matches");
+            }
           }
         })
         .catch((error) => {
@@ -66,34 +72,11 @@ function processQueue() {
           task.workerStatuses[partNumber] = WorkerStatus.ERROR;
 
           if (task.completedWorkers === WORKER_URLS.length) {
-            task.status = TaskStatus.ERROR;
+            task.status = TaskStatus.ERROR; 
           }
         });
     });
   }
-}
-
-function stopAllWorkers(requestId) {
-  WORKER_URLS.forEach((workerUrl, index) => {
-    axios
-      .post(`${workerUrl}/internal/api/worker/hash/crack/stop`, { requestId })
-      .then((response) => {
-        console.log(
-          `Worker ${workerUrl} stopped successfully for requestId: ${requestId}`
-        );
-        const task = requests.get(requestId);
-        if (task) {
-          task.workerStatuses[index] = WorkerStatus.STOPPED;
-        }
-      })
-      .catch((error) => {
-        console.error(`Error stopping worker ${workerUrl}:`, error.message);
-        const task = requests.get(requestId);
-        if (task) {
-          task.workerStatuses[index] = WorkerStatus.ERROR;
-        }
-      });
-  });
 }
 
 function addRequest(hash, maxLength) {
@@ -132,11 +115,14 @@ function getRequestStatus(requestId) {
   };
 }
 
+let lastWorkersInfo = {}; 
+let lastQueueInfo = []; 
+
 function getWorkersInfo(requestId) {
   const task = requests.get(requestId);
   if (!task) return null;
 
-  return WORKER_URLS.map((workerUrl, index) => {
+  const workersInfo = WORKER_URLS.map((workerUrl, index) => {
     const workerStatus = task.workerStatuses[index] || WorkerStatus.IN_PROGRESS;
     const workerResult = task.workerResults[index] || [];
 
@@ -146,20 +132,51 @@ function getWorkersInfo(requestId) {
       data: workerResult,
     };
   });
+
+  const hasChanged =
+    !lastWorkersInfo[requestId] ||
+    !arraysEqual(lastWorkersInfo[requestId], workersInfo);
+
+  if (hasChanged) {
+    lastWorkersInfo[requestId] = workersInfo; 
+    return workersInfo;
+  }
+
+  return null; 
 }
 
 function getQueueInfo() {
-  return tasks.map((task) => ({
+  const queueInfo = tasks.map((task) => ({
     requestId: task.requestId,
     status: task.status,
-    result: task.results[0]
+    result: task.results[0],
   }));
+
+  const hasChanged = !arraysEqual(lastQueueInfo, queueInfo);
+
+  if (hasChanged) {
+    lastQueueInfo = queueInfo;
+    return queueInfo;
+  }
+
+  return null;
+}
+
+function arraysEqual(a, b) {
+  if (a === b) return true;
+  if (a == null || b == null) return false;
+  if (a.length !== b.length) return false;
+
+  for (let i = 0; i < a.length; i++) {
+    if (JSON.stringify(a[i]) !== JSON.stringify(b[i])) return false;
+  }
+
+  return true;
 }
 
 module.exports = {
   addRequest,
   getRequestStatus,
   getWorkersInfo,
-  stopAllWorkers,
   getQueueInfo,
 };
