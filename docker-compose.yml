@@ -5,13 +5,9 @@ services:
     command: npm run start:manager
     ports:
       - "3000:3000"
-    depends_on:
-      worker1:
-        condition: service_healthy
-      worker2:
-        condition: service_healthy
-      worker3:
-        condition: service_healthy
+    environment:
+      - PORT=3000
+      - SSE_UPDATE_INTERVAL=1000
     networks:
       - crackhash-network
 
@@ -20,11 +16,6 @@ services:
     command: npm run start:worker
     environment:
       - PORT=3001
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - crackhash-network
 
@@ -33,11 +24,6 @@ services:
     command: npm run start:worker
     environment:
       - PORT=3002
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - crackhash-network
 
@@ -46,11 +32,6 @@ services:
     command: npm run start:worker
     environment:
       - PORT=3003
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - crackhash-network
 

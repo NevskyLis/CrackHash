@@ -12,6 +12,9 @@ const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
+const PORT = process.env.PORT || 3000;
+const SSE_UPDATE_INTERVAL = process.env.SSE_UPDATE_INTERVAL || 1000;
+
 app.post("/api/hash/crack", (req, res) => {
   const { hash, maxLength } = req.body;
   const requestId = addRequest(hash, maxLength);
@@ -41,14 +44,12 @@ app.get("/api/workers/info/sse", (req, res) => {
   res.setHeader("Connection", "keep-alive");
 
   const interval = setInterval(() => {
-    const workersInfo = getWorkersInfo(requestId); 
-
+    const workersInfo = getWorkersInfo(requestId);
     if (!workersInfo) {
       return;
     }
-
     res.write(`data: ${JSON.stringify(workersInfo)}\n\n`);
-  }, 1000);
+  }, SSE_UPDATE_INTERVAL);
 
   req.on("close", () => {
     clearInterval(interval);
@@ -62,14 +63,12 @@ app.get("/api/queue/info/sse", (req, res) => {
   res.setHeader("Connection", "keep-alive");
 
   const interval = setInterval(() => {
-    const queueInfo = getQueueInfo(); 
-
+    const queueInfo = getQueueInfo();
     if (!queueInfo) {
       return;
     }
-
     res.write(`data: ${JSON.stringify(queueInfo)}\n\n`);
-  }, 1000);
+  }, SSE_UPDATE_INTERVAL);
 
   req.on("close", () => {
     clearInterval(interval);
@@ -89,16 +88,14 @@ app.get("/api/hash/progress/sse", (req, res) => {
   res.setHeader("Connection", "keep-alive");
 
   const interval = setInterval(() => {
-    const task = getRequestStatus(requestId); 
-
+    const task = getRequestStatus(requestId);
     if (!task) {
       return res.status(404).json({ error: "Request not found" });
     }
-
     res.write(
       `data: ${JSON.stringify({ requestId, progress: task.progress })}\n\n`
     );
-  }, 1000);
+  }, SSE_UPDATE_INTERVAL);
 
   req.on("close", () => {
     clearInterval(interval);
@@ -106,6 +103,6 @@ app.get("/api/hash/progress/sse", (req, res) => {
   });
 });
 
-app.listen(3000, () => {
-  console.log("Manager running on port 3000");
+app.listen(PORT, () => {
+  console.log(`Manager running on port ${PORT}`);
 });

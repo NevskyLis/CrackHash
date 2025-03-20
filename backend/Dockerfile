@@ -7,4 +7,4 @@ RUN npm install
 
 COPY src/ ./src/
 
-CMD ["npm", "run", "start:manager"]
+CMD ["npm", "run", "start:manager", "start:worker"]

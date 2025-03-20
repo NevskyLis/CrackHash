@@ -14,6 +14,15 @@ const tasks = [];
 const requests = new Map();
 
 function processQueue() {
+  const hasInProgressTasks = tasks.some(
+    (task) => task.status === TaskStatus.IN_PROGRESS
+  );
+
+  if (hasInProgressTasks) {
+    console.log("There are tasks in progress");
+    return;
+  }
+
   const taskIndex = tasks.findIndex(
     (task) => task.status === TaskStatus.IN_QUEUE
   );
@@ -23,13 +32,6 @@ function processQueue() {
     const requestId = task.requestId;
 
     task.status = TaskStatus.IN_PROGRESS;
-    task.completedWorkers = 0;
-    task.results = [];
-    task.workerStatuses = Array(WORKER_URLS.length).fill(
-      WorkerStatus.IN_PROGRESS
-    );
-    task.workerResults = Array(WORKER_URLS.length).fill([]);
-    task.progress = 0; 
 
     WORKER_URLS.forEach((workerUrl, partNumber) => {
       console.log(
@@ -46,10 +48,10 @@ function processQueue() {
         .then((response) => {
           const task = requests.get(requestId);
 
-          task.results.push(...response.data.words); 
+          task.results.push(...response.data.words);
           task.completedWorkers++;
           task.workerStatuses[partNumber] = WorkerStatus.READY;
-          task.workerResults[partNumber] = response.data.words || "No matches";
+          task.workerResults[partNumber] = response.data.words;
 
           task.progress = (
             (task.completedWorkers / WORKER_URLS.length) *
@@ -57,12 +59,10 @@ function processQueue() {
           ).toFixed(2);
 
           if (task.completedWorkers === WORKER_URLS.length) {
-            if (task.results.length > 0) {
-              task.status = TaskStatus.READY; 
-            } else {
-              task.status = TaskStatus.ERROR; 
-              task.results.push("No matches");
-            }
+            task.workerStatuses.every((status) => status === TaskStatus.READY)
+              ? (task.status = TaskStatus.READY)
+              : TaskStatus.PARTIAL;
+              processQueue();
           }
         })
         .catch((error) => {
@@ -70,10 +70,6 @@ function processQueue() {
           const task = requests.get(requestId);
           task.completedWorkers++;
           task.workerStatuses[partNumber] = WorkerStatus.ERROR;
-
-          if (task.completedWorkers === WORKER_URLS.length) {
-            task.status = TaskStatus.ERROR; 
-          }
         });
     });
   }
@@ -99,6 +95,7 @@ function addRequest(hash, maxLength) {
     results: [],
     workerStatuses: Array(WORKER_URLS.length).fill(WorkerStatus.IN_PROGRESS),
     workerResults: Array(WORKER_URLS.length).fill([]),
+    progress: 0
   };
   requests.set(requestId, task);
   tasks.push(task);
@@ -115,8 +112,8 @@ function getRequestStatus(requestId) {
   };
 }
 
-let lastWorkersInfo = {}; 
-let lastQueueInfo = []; 
+let lastWorkersInfo = {};
+let lastQueueInfo = [];
 
 function getWorkersInfo(requestId) {
   const task = requests.get(requestId);
@@ -138,18 +135,18 @@ function getWorkersInfo(requestId) {
     !arraysEqual(lastWorkersInfo[requestId], workersInfo);
 
   if (hasChanged) {
-    lastWorkersInfo[requestId] = workersInfo; 
+    lastWorkersInfo[requestId] = workersInfo;
     return workersInfo;
   }
 
-  return null; 
+  return null;
 }
 
 function getQueueInfo() {
   const queueInfo = tasks.map((task) => ({
     requestId: task.requestId,
     status: task.status,
-    result: task.results[0],
+    result: task.results,
   }));
 
   const hasChanged = !arraysEqual(lastQueueInfo, queueInfo);

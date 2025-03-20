@@ -39,7 +39,7 @@ export const InfoForm = () => {
       <div className="InfoFormItem">
         <p> max Length </p>
         <input
-          type="number"
+          type="text"
           value={maxLength}
           onChange={(e) => setMaxLength(parseInt(e.target.value))}
         />

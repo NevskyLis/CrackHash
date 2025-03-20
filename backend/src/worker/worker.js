@@ -1,14 +1,13 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const axios = require("axios");
 const { crackHash } = require("./hashCracker");
 
 const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
-const port = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3001;
 
 app.post("/internal/api/worker/hash/crack/task", (req, res) => {
   const { requestId, hash, maxLength, partNumber, partCount } = req.body;
@@ -37,10 +36,6 @@ app.post("/internal/api/worker/hash/crack/task", (req, res) => {
   res.json({ requestId, words: results });
 });
 
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "OK" });
-});
-
-app.listen(port, () => {
-  console.log(`Worker running on port ${port}`);
+app.listen(PORT, () => {
+  console.log(`Worker running on port ${PORT}`);
 });

@@ -25,16 +25,17 @@ function* generateCombinations(alphabet, maxLength, startIndex, endIndex) {
 }
 
 function crackHash(hash, maxLength, partNumber, partCount) {
+  const results = [];
   const alphabetArray = ALPHABET.split("");
   let totalCombinations = 0;
+
   for (let length = 1; length <= maxLength; length++) {
     totalCombinations += Math.pow(alphabetArray.length, length);
   }
+
   const combinationsPerPart = Math.ceil(totalCombinations / partCount);
   const start = partNumber * combinationsPerPart;
   const end = Math.min(start + combinationsPerPart, totalCombinations);
-
-  const results = [];
 
   console.log(
     `Part ${partNumber}: Processing combinations from ${start} to ${end}`
@@ -55,18 +56,6 @@ function crackHash(hash, maxLength, partNumber, partCount) {
   }
 
   return results;
-}
-
-function calculateTotalCombinations(maxLength, alphabetLength) {
-  let total = 0;
-  for (let length = 1; length <= maxLength; length++) {
-    total += Math.pow(alphabetLength, length);
-  }
-  return total;
-}
-
-function calculateProgress(currentIndex, totalCombinations) {
-  return ((currentIndex / totalCombinations) * 100).toFixed(2);
 }
 
 module.exports = { crackHash, generateCombinations };
