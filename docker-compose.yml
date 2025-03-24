@@ -5,15 +5,18 @@ services:
     command: npm run start:manager
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
       - PORT=3000
-      - SSE_UPDATE_INTERVAL=1000
     networks:
       - crackhash-network
 
   worker1:
     build: ./backend
     command: npm run start:worker
+    env_file:
+      - .env
     environment:
       - PORT=3001
     networks:
@@ -22,6 +25,8 @@ services:
   worker2:
     build: ./backend
     command: npm run start:worker
+    env_file:
+      - .env
     environment:
       - PORT=3002
     networks:
@@ -30,6 +35,8 @@ services:
   worker3:
     build: ./backend
     command: npm run start:worker
+    env_file:
+      - .env
     environment:
       - PORT=3003
     networks:

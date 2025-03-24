@@ -1,61 +1,33 @@
-const crypto = require("crypto");
-const ALPHABET = require("../common/alphabet");
+const { Worker } = require("worker_threads");
+const path = require("path");
 
-function* generateCombinations(alphabet, maxLength, startIndex, endIndex) {
-  let currentIndex = 0;
+function crackHash(hash, maxLength, partNumber, partCount, onProgress) {
+  return new Promise((resolve) => {
+    const worker = new Worker(path.resolve(__dirname, "workerThread.js"), {
+      workerData: { hash, maxLength, partNumber, partCount },
+    });
 
-  function* generate(currentWord, depth) {
-    if (depth > maxLength) return;
+    let finalResult = { progress: 0, results: [] };
 
-    if (currentWord.length > 0) {
-      if (currentIndex >= startIndex && currentIndex < endIndex) {
-        yield currentWord;
+    worker.on("message", (message) => {
+      finalResult = message; 
+      if (onProgress) {
+        onProgress(message);
       }
-      currentIndex++;
-    }
+      if (message.progress === 100) {
+        resolve(finalResult);
+      }
+    });
 
-    if (currentIndex >= endIndex) return;
+    worker.on("error", (err) => {
+      console.error("Worker error:", err);
+      resolve({ progress: 0, results: [] });
+    });
 
-    for (const char of alphabet) {
-      yield* generate(currentWord + char, depth + 1);
-    }
-  }
-
-  yield* generate("", 0);
+    worker.on("exit", (code) => {
+      if (code !== 0) console.error(`Worker stopped with exit code ${code}`);
+    });
+  });
 }
 
-function crackHash(hash, maxLength, partNumber, partCount) {
-  const results = [];
-  const alphabetArray = ALPHABET.split("");
-  let totalCombinations = 0;
-
-  for (let length = 1; length <= maxLength; length++) {
-    totalCombinations += Math.pow(alphabetArray.length, length);
-  }
-
-  const combinationsPerPart = Math.ceil(totalCombinations / partCount);
-  const start = partNumber * combinationsPerPart;
-  const end = Math.min(start + combinationsPerPart, totalCombinations);
-
-  console.log(
-    `Part ${partNumber}: Processing combinations from ${start} to ${end}`
-  );
-
-  const combinations = generateCombinations(
-    alphabetArray,
-    maxLength,
-    start,
-    end
-  );
-
-  for (const word of combinations) {
-    const wordHash = crypto.createHash("md5").update(word).digest("hex");
-    if (wordHash === hash) {
-      results.push(word);
-    }
-  }
-
-  return results;
-}
-
-module.exports = { crackHash, generateCombinations };
+module.exports = { crackHash };

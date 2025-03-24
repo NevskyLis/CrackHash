@@ -3,7 +3,6 @@ import "../workersInfo/styles.css";
 
 export const QueueInfo = ({ onActiveRequestIdChange }) => {
   const [queue, setQueue] = useState([]);
-  const [progress, setProgress] = useState({});
 
   useEffect(() => {
     const eventSource = new EventSource(
@@ -13,6 +12,7 @@ export const QueueInfo = ({ onActiveRequestIdChange }) => {
     eventSource.onmessage = (event) => {
       const data = JSON.parse(event.data);
       setQueue(data);
+
       const activeTask = data.find((task) => task.status === "IN_PROGRESS");
       if (activeTask) {
         onActiveRequestIdChange(activeTask.requestId);
@@ -26,57 +26,11 @@ export const QueueInfo = ({ onActiveRequestIdChange }) => {
       eventSource.close();
     };
 
-    return () => {
-      eventSource.close();
-    };
+    return () => eventSource.close();
   }, [onActiveRequestIdChange]);
 
-  useEffect(() => {
-    const progressEventSources = {};
-
-    queue.forEach((item) => {
-      const { requestId } = item;
-
-      if (!progressEventSources[requestId]) {
-        progressEventSources[requestId] = new EventSource(
-          `http://localhost:3000/api/hash/progress/sse?requestId=${requestId}`
-        );
-
-        progressEventSources[requestId].onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          setProgress((prevProgress) => ({
-            ...prevProgress,
-            [data.requestId]: data.progress,
-          }));
-        };
-
-        progressEventSources[requestId].onerror = () => {
-          console.error(
-            `SSE progress connection error for requestId: ${requestId}`
-          );
-          progressEventSources[requestId].close();
-        };
-      }
-    });
-
-    return () => {
-      Object.values(progressEventSources).forEach((eventSource) => {
-        eventSource.close();
-      });
-    };
-  }, [queue]);
-
-  const ProgressBar = ({ progress }) => {
-    return (
-      <div className="progress-bar-container">
-        <div className="progress-bar" style={{ width: `${progress}%` }}></div>
-        <div className="progress-text">{progress}%</div>
-      </div>
-    );
-  };
-
   return (
-    <div className="WorkersInfoContainer">
+    <div className="workersInfoContainer">
       <p> CURRENT QUEUE </p>
       <table className="customTable">
         <thead>
@@ -84,7 +38,7 @@ export const QueueInfo = ({ onActiveRequestIdChange }) => {
             <th>REQUEST ID</th>
             <th>STATUS</th>
             <th>ANSWER</th>
-            <th>PROGRESS</th>
+            <th style={{ width: "200px" }}>PROGRESS</th>
           </tr>
         </thead>
         <tbody>
@@ -92,9 +46,14 @@ export const QueueInfo = ({ onActiveRequestIdChange }) => {
             <tr key={index}>
               <td>{item.requestId}</td>
               <td>{item.status}</td>
-              <td>{item.result}</td>
-              <td>
-                <ProgressBar progress={progress[item.requestId] || 0} />
+              <td>{item.result.join(", ")}</td>
+              <td style={{ width: "200px" }}>
+                <progress
+                  value={item.progress || 0}
+                  max="100"
+                  className="progressBar"
+                ></progress>
+                {item.progress ? ` ${item.progress.toFixed(2)}%` : " 0%"}
               </td>
             </tr>
           ))}

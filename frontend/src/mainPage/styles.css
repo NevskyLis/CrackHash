@@ -51,7 +51,7 @@ button:hover {
 h1 {
     font-family: 'PIXY', cursive; 
     color: white;
-    font-size: 90px;
+    font-size: 70px;
     text-align: center;
     line-height: 0.9;
     margin: 30px 0px;
@@ -61,7 +61,7 @@ h1 {
 .ContentContainer {
   display: flex;
   flex-direction: row;
-  padding: 3vh 10vw;
+  padding: 3vh 5vw;
   justify-content: space-between
 }
 

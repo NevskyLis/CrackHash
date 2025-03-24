@@ -26,9 +26,13 @@
   border-bottom: none;
 }
 
-.WorkersInfoContainer {
+.workersInfoContainer {
   display: flex;
   flex-direction: column;
-  min-width: 600px;
   margin-bottom: 20px;
+  width: 750px;
+}
+
+.progressBar {
+  width: 100px; 
 }

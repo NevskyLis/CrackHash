@@ -1,11 +1,13 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+require("dotenv").config();
 const {
   addRequest,
   getRequestStatus,
   getWorkersInfo,
   getQueueInfo,
+  updateWorkerProgress,
 } = require("./queueManager");
 
 const app = express();
@@ -24,7 +26,7 @@ app.post("/api/hash/crack", (req, res) => {
 app.get("/api/hash/status", (req, res) => {
   const { requestId } = req.query;
   const request = getRequestStatus(requestId);
-
+  
   if (!request) {
     return res.status(404).json({ error: "Request not found" });
   }
@@ -76,31 +78,15 @@ app.get("/api/queue/info/sse", (req, res) => {
   });
 });
 
-app.get("/api/hash/progress/sse", (req, res) => {
-  const { requestId } = req.query;
+app.post("/internal/api/manager/update-progress", (req, res) => {
+  const { requestId, partNumber, progress } = req.body;
 
-  if (!requestId) {
-    return res.status(400).json({ error: "requestId is required" });
+  try {
+    updateWorkerProgress(requestId, partNumber, progress);
+    res.json({ message: "Progress updated" });
+  } catch (error) {
+    res.status(404).json({ error: error.message });
   }
-
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-
-  const interval = setInterval(() => {
-    const task = getRequestStatus(requestId);
-    if (!task) {
-      return res.status(404).json({ error: "Request not found" });
-    }
-    res.write(
-      `data: ${JSON.stringify({ requestId, progress: task.progress })}\n\n`
-    );
-  }, SSE_UPDATE_INTERVAL);
-
-  req.on("close", () => {
-    clearInterval(interval);
-    res.end();
-  });
 });
 
 app.listen(PORT, () => {

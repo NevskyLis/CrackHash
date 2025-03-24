@@ -26,7 +26,7 @@ export const WorkersInfo = ({ activeRequestId }) => {
   }, [activeRequestId]); 
 
   return (
-    <div className="WorkersInfoContainer">
+    <div className="workersInfoContainer">
       <p> CURRENT WORKERS </p>
       <table className="customTable">
         <thead>

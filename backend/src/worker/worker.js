@@ -2,23 +2,18 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const { crackHash } = require("./hashCracker");
+const axios = require("axios");
+require("dotenv").config();
 
 const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
-const PORT = process.env.PORT || 3001;
+const MANAGER_URL = process.env.MANAGER_URL || "http://manager:3000";
+const PORT = process.env.PORT;
 
-app.post("/internal/api/worker/hash/crack/task", (req, res) => {
+app.post("/internal/api/worker/hash/crack/task", async (req, res) => {
   const { requestId, hash, maxLength, partNumber, partCount } = req.body;
-
-  console.log("Received task:", {
-    requestId,
-    hash,
-    maxLength,
-    partNumber,
-    partCount,
-  });
 
   if (
     !hash ||
@@ -29,11 +24,21 @@ app.post("/internal/api/worker/hash/crack/task", (req, res) => {
     return res.status(400).json({ error: "Invalid task data" });
   }
 
-  const results = crackHash(hash, maxLength, partNumber, partCount);
+  const result = await crackHash(
+    hash,
+    maxLength,
+    partNumber,
+    partCount,
+    async (progressUpdate) => {
+      await axios.post(`${MANAGER_URL}/internal/api/manager/update-progress`, {
+        requestId,
+        partNumber,
+        progress: progressUpdate.progress,
+      });
+    }
+  );
 
-  console.log("Task result:", results);
-
-  res.json({ requestId, words: results });
+  res.json(result);
 });
 
 app.listen(PORT, () => {

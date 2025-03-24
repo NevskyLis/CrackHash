@@ -37,11 +37,11 @@ export const InfoForm = () => {
         />
       </div>
       <div className="InfoFormItem">
-        <p> max Length </p>
+        <p> MAX LENGTH</p>
         <input
           type="text"
           value={maxLength}
-          onChange={(e) => setMaxLength(parseInt(e.target.value))}
+          onChange={(e) => setMaxLength(e.target.value)}
         />
       </div>
       <button className="customButton" onClick={handleCrackHash}>
