@@ -2,6 +2,7 @@ const { v4: uuidv4 } = require("uuid");
 const axios = require("axios");
 const { TaskStatus, WorkerStatus } = require("../common/status");
 require("dotenv").config();
+const TaskModel = require("./models/Task");
 
 const WORKER_URLS = [
   process.env.WORKER_1,
@@ -13,7 +14,7 @@ const MAX_ACTIVE_REQUESTS = parseInt(process.env.MAX_ACTIVE_REQUESTS, 10) || 5;
 const tasks = [];
 const requests = new Map();
 
-function processQueue() {
+async function processQueue() {
   const hasInProgressTasks = tasks.some(
     (task) => task.status === TaskStatus.IN_PROGRESS
   );
@@ -31,6 +32,22 @@ function processQueue() {
     const requestId = task.requestId;
     task.status = TaskStatus.IN_PROGRESS;
 
+    TaskModel.updateOne(
+      { taskId: requestId },
+      {
+        status: TaskStatus.IN_PROGRESS,
+        workerProgress: task.workerProgress,
+        workerResults: task.workerResults,
+        progress: task.progress
+      }
+    )
+      .then(() =>
+        console.log(`Task ${requestId} marked as IN_PROGRESS in DB`)
+      )
+      .catch((err) =>
+        console.error("Failed to update task status in DB:", err)
+      );
+
     WORKER_URLS.forEach((workerUrl, partNumber) => {
       console.log(
         `Sending task to worker ${workerUrl} for requestId: ${requestId}`
@@ -43,17 +60,37 @@ function processQueue() {
           partNumber,
           partCount: WORKER_URLS.length,
         })
-        .then((response) => {
+        .then(async (response) => {
           task.workerStatuses[partNumber] = WorkerStatus.READY;
-          task.workerResults[partNumber] = response.data.results; 
+          task.workerResults[partNumber] = response.data.results;
           task.workerProgress[partNumber] = 100;
           task.completedWorkers++;
-          task.results.push(...response.data.results); 
+          task.results.push(...response.data.results);
+
+          await TaskModel.updateOne(
+            { taskId: requestId },
+            { $set: { result: task.results } }
+          );
+          
 
           if (task.completedWorkers === WORKER_URLS.length) {
+            let taskStatus;
             task.workerStatuses.every((status) => status === TaskStatus.READY)
-              ? (task.status = TaskStatus.READY)
-              : TaskStatus.PARTIAL;
+              ? (taskStatus = TaskStatus.READY)
+              : (taskStatus = TaskStatus.PARTIAL);
+
+            task.status = taskStatus;
+
+            await TaskModel.updateOne(
+              { taskId: requestId },
+              {
+                status: taskStatus,
+                result: task.results,
+              }
+            )
+              .then((updated) => console.log("Task updated in DB:", updated))
+              .catch((err) => console.error("DB update error:", err));
+
             processQueue();
           }
         })
@@ -137,6 +174,7 @@ function getQueueInfo() {
   const queueInfoStr = JSON.stringify(queueInfo);
   if (queueInfoStr !== lastQueueInfoStr) {
     lastQueueInfoStr = queueInfoStr;
+    console.log("QUEUE", queueInfo);
     return queueInfo;
   }
 
@@ -159,5 +197,6 @@ module.exports = {
   getRequestStatus,
   getWorkersInfo,
   getQueueInfo,
-  updateWorkerProgress, 
+  updateWorkerProgress,
+  restoreTasksFromDB,
 };

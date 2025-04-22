@@ -11,36 +11,29 @@ services:
       - PORT=3000
     networks:
       - crackhash-network
+    depends_on:
+      - mongo-primary
+      - rabbitmq
 
   worker1:
     build: ./backend
     command: npm run start:worker
     env_file:
       - .env
-    environment:
-      - PORT=3001
     networks:
       - crackhash-network
+    depends_on:
+      - rabbitmq
 
   worker2:
     build: ./backend
     command: npm run start:worker
     env_file:
       - .env
-    environment:
-      - PORT=3002
     networks:
       - crackhash-network
-
-  worker3:
-    build: ./backend
-    command: npm run start:worker
-    env_file:
-      - .env
-    environment:
-      - PORT=3003
-    networks:
-      - crackhash-network
+    depends_on:
+      - rabbitmq
 
   frontend:
     build: ./frontend
@@ -50,6 +43,54 @@ services:
       - manager
     networks:
       - crackhash-network
+
+  mongo-primary:
+    image: mongo:6.0
+    command: mongod --replSet rs0 --bind_ip_all
+    networks:
+      - crackhash-network
+    volumes:
+      - mongo-data-primary:/data/db
+
+  mongo-secondary1:
+    image: mongo:6.0
+    command: mongod --replSet rs0 --bind_ip_all
+    networks:
+      - crackhash-network
+    depends_on:
+      - mongo-primary
+    volumes:
+      - mongo-data-secondary1:/data/db
+
+  mongo-secondary2:
+    image: mongo:6.0
+    command: mongod --replSet rs0 --bind_ip_all
+    networks:
+      - crackhash-network
+    depends_on:
+      - mongo-primary
+    volumes:
+      - mongo-data-secondary2:/data/db
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DURABLE_QUEUES: "true"  # Персистентные очереди
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq  # Сохранение данных
+    networks:
+      - crackhash-network
+
+volumes:
+  mongo-data-primary:
+  mongo-data-secondary1:
+  mongo-data-secondary2:
+  rabbitmq-data:
 
 networks:
   crackhash-network:

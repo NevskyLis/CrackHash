@@ -18,6 +18,8 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "js-combinatorics": "^2.1.2",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "mongoose": "^7.6.1",
+    "amqplib": "^0.10.3"
   }
 }
