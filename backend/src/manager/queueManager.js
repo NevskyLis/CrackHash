@@ -11,185 +11,231 @@ const WORKER_URLS = [
 ];
 const MAX_ACTIVE_REQUESTS = parseInt(process.env.MAX_ACTIVE_REQUESTS, 10) || 5;
 
-const tasks = [];
-const requests = new Map();
-
-async function processQueue() {
-  const hasInProgressTasks = tasks.some(
-    (task) => task.status === TaskStatus.IN_PROGRESS
-  );
-
-  if (hasInProgressTasks) {
-    return;
-  }
-
-  const taskIndex = tasks.findIndex(
-    (task) => task.status === TaskStatus.IN_QUEUE
-  );
-
-  if (taskIndex !== -1) {
-    const task = tasks[taskIndex];
-    const requestId = task.requestId;
-    task.status = TaskStatus.IN_PROGRESS;
-
-    TaskModel.updateOne(
-      { taskId: requestId },
-      {
-        status: TaskStatus.IN_PROGRESS,
-        workerProgress: task.workerProgress,
-        workerResults: task.workerResults,
-        progress: task.progress
-      }
-    )
-      .then(() =>
-        console.log(`Task ${requestId} marked as IN_PROGRESS in DB`)
-      )
-      .catch((err) =>
-        console.error("Failed to update task status in DB:", err)
-      );
-
-    WORKER_URLS.forEach((workerUrl, partNumber) => {
-      console.log(
-        `Sending task to worker ${workerUrl} for requestId: ${requestId}`
-      );
-      axios
-        .post(`${workerUrl}/internal/api/worker/hash/crack/task`, {
-          requestId,
-          hash: task.hash,
-          maxLength: task.maxLength,
-          partNumber,
-          partCount: WORKER_URLS.length,
-        })
-        .then(async (response) => {
-          task.workerStatuses[partNumber] = WorkerStatus.READY;
-          task.workerResults[partNumber] = response.data.results;
-          task.workerProgress[partNumber] = 100;
-          task.completedWorkers++;
-          task.results.push(...response.data.results);
-
-          await TaskModel.updateOne(
-            { taskId: requestId },
-            { $set: { result: task.results } }
-          );
-          
-
-          if (task.completedWorkers === WORKER_URLS.length) {
-            let taskStatus;
-            task.workerStatuses.every((status) => status === TaskStatus.READY)
-              ? (taskStatus = TaskStatus.READY)
-              : (taskStatus = TaskStatus.PARTIAL);
-
-            task.status = taskStatus;
-
-            await TaskModel.updateOne(
-              { taskId: requestId },
-              {
-                status: taskStatus,
-                result: task.results,
-              }
-            )
-              .then((updated) => console.log("Task updated in DB:", updated))
-              .catch((err) => console.error("DB update error:", err));
-
-            processQueue();
-          }
-        })
-        .catch((error) => {
-          console.error(`Error from worker ${workerUrl}:`, error.message);
-          const task = requests.get(requestId);
-          task.completedWorkers++;
-          task.workerStatuses[partNumber] = WorkerStatus.ERROR;
-        });
+async function restoreTasksFromDB() {
+  
+  try {
+    console.log("Starting tasks restoration from DB...");
+    const tasksFromDB = await TaskModel.find({
+      status: { $in: [TaskStatus.IN_PROGRESS, TaskStatus.IN_QUEUE] },
     });
+    console.log("→ restoreTasksFromDB(): found tasks", tasksFromDB.length);
+
+    await Promise.all(tasksFromDB.map(async (task) => {
+      const requestId = task.taskId;
+      if (!requestId) {
+        console.warn("Found task without requestId, skipping:", task._id);
+        return;
+      }
+
+      const resetTask = {
+        requestId,
+        status: TaskStatus.IN_QUEUE,
+        hash: task.hash,
+        maxLength: task.maxLength,
+        completedWorkers: 0,
+        results: [],
+        workerStatuses: Array(WORKER_URLS.length).fill(WorkerStatus.IN_PROGRESS),
+        workerResults: Array(WORKER_URLS.length).fill([]),
+        workerProgress: Array(WORKER_URLS.length).fill(0),
+        progress: 0
+      };
+
+      await TaskModel.updateOne(
+        { taskId: requestId },
+        {
+          status: TaskStatus.IN_QUEUE,
+          workerProgress: resetTask.workerProgress,
+          progress: 0
+        }
+      );
+
+      console.log(`Restored task: ${requestId}`);
+    }));
+
+    processQueue();
+    return true;
+  } catch (err) {
+    console.error("Failed to restore tasks from DB:", err);
+    throw err;
   }
 }
 
-function addRequest(hash, maxLength) {
-  const requestId = uuidv4();
-  const inQueueCount = tasks.filter(
-    (task) => task.status === TaskStatus.IN_QUEUE
-  ).length;
-  if (inQueueCount >= MAX_ACTIVE_REQUESTS) {
-    throw new Error(
-      "Достигнуто максимальное количество задач в очереди, подождите"
-    );
+
+async function processQueue() {
+  const hasInProgress = await TaskModel.exists({ 
+    status: TaskStatus.IN_PROGRESS 
+  });
+  
+  if (hasInProgress) return;
+
+  const task = await TaskModel.findOneAndUpdate(
+    { status: TaskStatus.IN_QUEUE },
+    { $set: { status: TaskStatus.IN_PROGRESS } },
+    { sort: { createdAt: 1 }, new: true }
+  );
+
+  if (!task) return;
+
+  WORKER_URLS.forEach(async (workerUrl, partNumber) => {
+     console.log(
+        `Sending task to worker ${workerUrl} for requestId: ${task.taskId}`
+      );
+    try {
+      const response = await axios.post(`${workerUrl}/internal/api/worker/hash/crack/task`, {
+        requestId: task.taskId,
+        hash: task.hash,
+        maxLength: task.maxLength,
+        partNumber,
+        partCount: WORKER_URLS.length,
+      });
+
+      await TaskModel.updateOne(
+        { taskId: task.taskId },
+        {
+          $set: {
+            [`workerStatuses.${partNumber}`]: WorkerStatus.READY,
+            [`workerResults.${partNumber}`]: response.data.results,
+            [`workerProgress.${partNumber}`]: 100
+          },
+          $push: { result: { $each: response.data.results } }
+        }
+      );
+   
+      const updatedTask = await TaskModel.findOne({ taskId: task.taskId });
+      
+      if (updatedTask.workerProgress.every(p => p === 100)) {
+        const status = updatedTask.workerStatuses.every(s => s === WorkerStatus.READY)
+          ? TaskStatus.READY
+          : TaskStatus.PARTIAL;
+     
+          await TaskModel.updateOne(
+            { taskId: task.taskId },
+            { $set: { status, result: [].concat(...updatedTask.workerResults), progress: 100 } }
+          );
+        }
+      } catch (error) {
+        await TaskModel.updateOne(
+          { taskId: task.taskId },
+          { $set: { [`workerStatuses.${partNumber}`]: WorkerStatus.ERROR } }
+        );
+      }
+    });
   }
-  const task = {
-    requestId,
+
+async function addRequest(hash, maxLength) {
+  const requestId = uuidv4();
+  
+  const inQueueCount = await TaskModel.countDocuments({ 
+    status: TaskStatus.IN_QUEUE 
+  });
+  
+  if (inQueueCount >= MAX_ACTIVE_REQUESTS) {
+    throw new Error("Достигнуто максимальное количество задач в очереди, подождите");
+  }
+
+  const task = new TaskModel({
+    taskId: requestId,
     status: TaskStatus.IN_QUEUE,
     hash,
     maxLength,
-    data: null,
-    completedWorkers: 0,
-    results: [],
     workerStatuses: Array(WORKER_URLS.length).fill(WorkerStatus.IN_PROGRESS),
-    workerResults: Array(WORKER_URLS.length).fill([]),
+    workerResults: [],
     workerProgress: Array(WORKER_URLS.length).fill(0),
-    progress: 0,
-  };
-  requests.set(requestId, task);
-  tasks.push(task);
+    result: [],
+    progress: 0
+  });
+
+  await task.save();
   processQueue();
   return requestId;
 }
 
-function getRequestStatus(requestId) {
-  const task = requests.get(requestId);
-  if (!task) return null;
-  return {
-    ...task,
-  };
+async function getRequestStatus(requestId) {
+  return await TaskModel.findOne({ taskId: requestId });
 }
 
 let lastWorkersInfoStr = "";
 let lastQueueInfoStr = "";
 
-function getWorkersInfo(requestId) {
-  const task = requests.get(requestId);
-  if (!task) return null;
+async function getWorkersInfo(requestId) {
+  try {
+    const task = await TaskModel.findOne(
+      { taskId: requestId },
+      {
+        workerStatuses: 1,
+        workerResults: 1,
+        _id: 0
+      }
+    ).lean();
 
-  const workersInfo = WORKER_URLS.map((workerUrl, index) => ({
-    number: index + 1,
-    status: task.workerStatuses[index] || WorkerStatus.IN_PROGRESS,
-    data: task.workerResults[index] || [],
-  }));
+    if (!task) return null;
 
-  const workersInfoStr = JSON.stringify(workersInfo);
-  if (workersInfoStr !== lastWorkersInfoStr) {
-    lastWorkersInfoStr = workersInfoStr;
-    return workersInfo;
+    const workersInfo = WORKER_URLS.map((workerUrl, index) => ({
+      number: index + 1,
+      status: task.workerStatuses?.[index] || WorkerStatus.IN_PROGRESS,
+      data: task.workerResults?.[index] || []
+    }));
+
+    const workersInfoStr = JSON.stringify(workersInfo);
+    
+    if (workersInfoStr !== lastWorkersInfoStr) {
+      lastWorkersInfoStr = workersInfoStr;
+      return workersInfo;
+    }
+
+    return null;
+  } catch (err) {
+    console.error("Error fetching workers info:", err);
+    return null;
   }
-
-  return null;
 }
 
-function getQueueInfo() {
-  const queueInfo = tasks.map((task) => ({
-    requestId: task.requestId,
-    status: task.status,
-    result: task.results,
-    progress: task.progress,
-  }));
+async function getQueueInfo() {
+  try {
+    const queueData = await TaskModel.find(
+      {},
+      {
+        taskId: 1,
+        status: 1,
+        result: 1,
+        progress: 1,
+        _id: 0
+      }
+    )
+    .sort({ createdAt: 1 })
+    .lean();
 
-  const queueInfoStr = JSON.stringify(queueInfo);
-  if (queueInfoStr !== lastQueueInfoStr) {
-    lastQueueInfoStr = queueInfoStr;
-    console.log("QUEUE", queueInfo);
+    const queueInfo = queueData.map(task => ({
+      requestId: task.taskId,
+      status: task.status,
+      result: task.result,
+      progress: task.progress
+    }));
+
     return queueInfo;
+  } catch (err) {
+    console.error("Error fetching queue info:", err);
+    return null;
   }
-
-  return null;
 }
 
-function updateWorkerProgress(requestId, partNumber, progress) {
-  const task = requests.get(requestId);
-  if (!task) {
-    throw new Error("Task not found");
+async function updateWorkerProgress(requestId, partNumber, progress) {
+  try {
+    await TaskModel.updateOne(
+      { taskId: requestId },
+      { $set: { [`workerProgress.${partNumber}`]: progress } }
+    );
+
+    const task = await TaskModel.findOne({ taskId: requestId });
+    const totalProgress = task.workerProgress.reduce((a, b) => a + b, 0) / WORKER_URLS.length;
+    
+    await TaskModel.updateOne(
+      { taskId: requestId },
+      { $set: { progress: totalProgress } }
+    );
+  } catch (err) {
+    console.error("Update progress error:", err);
   }
-  task.workerProgress[partNumber] = progress;
-  task.progress =
-    task.workerProgress.reduce((sum, p) => sum + p, 0) /
-    task.workerProgress.length;
 }
 
 module.exports = {

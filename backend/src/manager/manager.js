@@ -23,6 +23,12 @@ const mongoose = require("mongoose");
 const Task = require("./models/Task");
 const { TaskStatus, WorkerStatus } = require("../common/status");
 
+const WORKER_URLS = [
+  process.env.WORKER_1,
+  process.env.WORKER_2,
+  process.env.WORKER_3,
+];
+
 const amqp = require("amqplib");
 let rabbitChannel;
 
@@ -167,27 +173,23 @@ connectWithRetry()
   .catch(/* … */);
 
 
-app.post("/api/hash/crack", async (req, res) => {
-  const { hash, maxLength } = req.body;
-
-  try {
-    const requestId = addRequest(hash, maxLength);
-    const task = new Task({
-      taskId: requestId,
-      hash,
-      maxLength,
-      status: TaskStatus.IN_QUEUE,
-      workerStatuses: Array(process.env.WORKER_COUNT || 3).fill("IN_PROGRESS"),
-      workerResults: [],
-      result: [],
-    });
-
-    await task.save();
-    res.json({ requestId });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
+  app.post("/api/hash/crack", async (req, res) => {
+    const { hash, maxLength } = req.body;
+  
+    try {
+      const requestId = await addRequest(hash, maxLength);
+  
+      res.json({ requestId });
+  
+    } catch (error) {
+      console.error("Ошибка создания задачи:", error);
+      res.status(400).json({ 
+        error: error.message.includes("maximum") 
+          ? error.message 
+          : "Ошибка при создании задачи"
+      });
+    }
+  });
 
 app.get("/api/hash/status", async (req, res) => {
   const { requestId } = req.query;
@@ -219,9 +221,9 @@ app.get("/api/workers/info/sse", (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
-  const interval = setInterval(() => {
+  const interval = setInterval(async () => {
     try {
-      const workersInfo = getWorkersInfo(requestId);
+      const workersInfo = await getWorkersInfo(requestId);
       if (workersInfo) {
         res.write(`data: ${JSON.stringify(workersInfo)}\n\n`);
       }
@@ -241,8 +243,8 @@ app.get("/api/queue/info/sse", (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
-  const interval = setInterval(() => {
-    const queueInfo = getQueueInfo();
+  const interval = setInterval(async () => {
+    const queueInfo = await getQueueInfo();
     if (!queueInfo) {
       return;
     }
@@ -255,11 +257,11 @@ app.get("/api/queue/info/sse", (req, res) => {
   });
 });
 
-app.post("/internal/api/manager/update-progress", (req, res) => {
+app.post("/internal/api/manager/update-progress", async (req, res) => {
   const { requestId, partNumber, progress } = req.body;
 
   try {
-    updateWorkerProgress(requestId, partNumber, progress);
+    await updateWorkerProgress(requestId, partNumber, progress);
     res.json({ message: "Progress updated" });
   } catch (error) {
     res.status(404).json({ error: error.message });
